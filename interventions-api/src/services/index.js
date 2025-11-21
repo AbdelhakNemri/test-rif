@@ -1,6 +1,8 @@
-// Example services
+// Export all services
 module.exports = {
-  sampleService: {
-    getMessage: () => 'Service message'
-  }
+  userService: require('./user.service'),
+  communeService: require('./commune.service'),
+  themeService: require('./theme.service'),
+  interventionService: require('./intervention.service'),
+  dashboardService: require('./dashboard.service'),
 };

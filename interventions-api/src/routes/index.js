@@ -5,6 +5,8 @@ const router = express.Router();
 router.use('/auth', require('./auth.routes'));
 router.use('/users', require('./user.routes'));
 router.use('/communes', require('./commune.routes'));
+router.use('/themes', require('./theme.routes'));
+router.use('/interventions', require('./intervention.routes'));
 router.use('/dashboard', require('./dashboard.routes'));
 
 // Keep example hello if available
