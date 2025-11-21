@@ -1,0 +1,24 @@
+import apiClient from './apiClient';
+
+export const login = async (credentials) => {
+  const response = await apiClient.post('/auth/login', credentials);
+  return response.data;
+};
+
+export const logout = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+};
+
+export const getCurrentUser = () => {
+  const userStr = localStorage.getItem('user');
+  return userStr ? JSON.parse(userStr) : null;
+};
+
+const authService = {
+  login,
+  logout,
+  getCurrentUser,
+};
+
+export default authService;

@@ -24,20 +24,29 @@ try {
 // Sync Sequelize models to DB in development
 if (process.env.NODE_ENV !== 'production') {
   try {
-    // requires your Sequelize instance file created earlier
     const { sequelize } = require('./src/models/sequelize');
-    sequelize.sync({ alter: true }) // or { force: true } to drop/recreate (dangerous)
-      .then(() => console.log('Database synced (dev: alter true)'))
-      .catch(err => console.error('Sequelize sync error:', err));
+    const models = require('./src/models');
+
+    sequelize.sync({ alter: true })
+      .then(() => {
+        console.log('Database synced successfully');
+        app.listen(port, () => {  // ✅ Changed PORT to port
+          console.log(`Server listening on http://localhost:${port}`);
+        });
+      })
+      .catch(err => {
+        console.error('Database sync error:', err);
+      });
   } catch (err) {
     console.warn('Sequelize instance not found, skipping sync:', err.message);
   }
+} else {
+  // En production, démarrer le serveur sans sync
+  app.listen(port, () => {
+    console.log(`Server listening on http://localhost:${port}`);
+  });
 }
 
 app.get('/', (req, res) => {
   res.json({ message: 'Hello from Express!' });
-});
-
-app.listen(port, () => {
-  console.log(`Server listening on http://localhost:${port}`);
 });

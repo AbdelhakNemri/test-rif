@@ -17,65 +17,58 @@
  * - Theme id column is `themeId`, commune id column is `communeId`.
  */
 const { sequelize } = require('./sequelize');
-const { QueryTypes } = require('sequelize');
 
 async function getStats() {
-  // 1) Single-row aggregate for totals and status counts — efficient using SUM(CASE)
-  const aggregateSql = `
-    SELECT
-      COUNT(*) AS totalInterventions,
-      SUM(CASE WHEN status = 'en cours' THEN 1 ELSE 0 END) AS inProgress,
-      SUM(CASE WHEN status = 'traitée' OR status = 'traitees' OR status = 'traite' THEN 1 ELSE 0 END) AS treated,
-      SUM(CASE WHEN status = 'archivée' OR status = 'archive' OR status = 'archived' THEN 1 ELSE 0 END) AS archived
-    FROM Intervention;
-  `;
+  try {
+    // 1. Statistiques principales avec le bon nom de colonne 'statut'
+    const statsQuery = `
+      SELECT
+        COUNT(*) AS totalInterventions,
+        SUM(CASE WHEN statut = 'En cours' THEN 1 ELSE 0 END) AS interventionsEnCours,
+        SUM(CASE WHEN statut = 'Résolu' THEN 1 ELSE 0 END) AS interventionsTraitees,
+        SUM(CASE WHEN statut = 'Fermé' THEN 1 ELSE 0 END) AS interventionsArchivees
+      FROM intervention;
+    `;
 
-  const aggregateRows = await sequelize.query(aggregateSql, { type: QueryTypes.SELECT });
-  const aggregate = aggregateRows && aggregateRows[0] ? aggregateRows[0] : {
-    totalInterventions: 0, inProgress: 0, treated: 0, archived: 0
-  };
+    const [statsResult] = await sequelize.query(statsQuery);
+    const stats = statsResult[0];
 
-  // 2) Top 5 themes by count
-  const topThemesSql = `
-    SELECT themeId, COUNT(*) AS count
-    FROM Intervention
-    WHERE themeId IS NOT NULL
-    GROUP BY themeId
-    ORDER BY count DESC
-    LIMIT 5;
-  `;
-  const topThemes = await sequelize.query(topThemesSql, { type: QueryTypes.SELECT });
+    // 2. Top 5 des thèmes avec jointure
+    const topThemesQuery = `
+      SELECT t.nom AS name, COUNT(i.id) AS count
+      FROM intervention i
+      INNER JOIN theme t ON i.theme_id = t.id
+      GROUP BY t.id, t.nom
+      ORDER BY count DESC
+      LIMIT 5;
+    `;
 
-  // 3) Top 5 communes by count
-  const topCommunesSql = `
-    SELECT communeId, COUNT(*) AS count
-    FROM Intervention
-    WHERE communeId IS NOT NULL
-    GROUP BY communeId
-    ORDER BY count DESC
-    LIMIT 5;
-  `;
-  const topCommunes = await sequelize.query(topCommunesSql, { type: QueryTypes.SELECT });
+    const [topThemesResult] = await sequelize.query(topThemesQuery);
 
-  // Normalize numeric fields (Sequelize may return strings depending on dialect)
-  function toNumberFields(obj, fields) {
-    fields.forEach(f => {
-      if (obj[f] !== undefined && obj[f] !== null) obj[f] = Number(obj[f]);
-    });
+    // 3. Top 5 des communes avec jointure
+    const topCommunesQuery = `
+      SELECT c.nom AS name, COUNT(i.id) AS count
+      FROM intervention i
+      INNER JOIN commune c ON i.commune_id = c.id
+      GROUP BY c.id, c.nom
+      ORDER BY count DESC
+      LIMIT 5;
+    `;
+
+    const [topCommunesResult] = await sequelize.query(topCommunesQuery);
+
+    return {
+      totalInterventions: parseInt(stats.totalInterventions) || 0,
+      interventionsEnCours: parseInt(stats.interventionsEnCours) || 0,
+      interventionsTraitees: parseInt(stats.interventionsTraitees) || 0,
+      interventionsArchivees: parseInt(stats.interventionsArchivees) || 0,
+      topThemes: topThemesResult,
+      topCommunes: topCommunesResult,
+    };
+  } catch (error) {
+    console.error('Error in dashboard.model.getStats:', error);
+    throw error;
   }
-
-  toNumberFields(aggregate, ['totalInterventions', 'inProgress', 'treated', 'archived']);
-  topThemes.forEach(r => toNumberFields(r, ['count']));
-  topCommunes.forEach(r => toNumberFields(r, ['count']));
-
-  return {
-    totalInterventions: aggregate.totalInterventions || 0,
-    inProgress: aggregate.inProgress || 0,
-    treated: aggregate.treated || 0,
-    archived: aggregate.archived || 0,
-    topThemes: topThemes || [],
-    topCommunes: topCommunes || [],
-  };
 }
 
 module.exports = {
